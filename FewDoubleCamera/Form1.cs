@@ -237,7 +237,7 @@ namespace FewDoubleCamera
 
             QueueDeclareOk cameraStream = channel.QueueDeclare("", false, true, true, null);
             Debug.WriteLine("Declared anonymous exclusive queue '{0}'", (object) cameraStream.QueueName);
-            string cameraStreamKey = "arkan.camera.stream";
+            string cameraStreamKey = "lumen.arkan.camera.stream";
             channel.QueueBind(cameraStream.QueueName, "amq.topic", cameraStreamKey);
             Debug.WriteLine("Bound queue '{0}' to topic '{1}'", cameraStream.QueueName, cameraStreamKey);
             sub = new Subscription(channel, cameraStream.QueueName);
@@ -262,6 +262,7 @@ namespace FewDoubleCamera
                 Debug.WriteLine("Got message: {0}", bodyStr);
                 JsonSerializerSettings jsonSettings = new JsonSerializerSettings { TypeNameHandling = TypeNameHandling.Objects };
                 ImageObject imageObj = JsonConvert.DeserializeObject<ImageObject>(bodyStr, jsonSettings);
+                Debug.WriteLine("Got object: {0}", imageObj);
                 sub.Ack(ev);
             }
             else

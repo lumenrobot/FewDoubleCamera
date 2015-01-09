@@ -28,6 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
+            this.components = new System.ComponentModel.Container();
             this.iB = new Emgu.CV.UI.ImageBox();
             this.cBKamera = new System.Windows.Forms.ComboBox();
             this.label1 = new System.Windows.Forms.Label();
@@ -39,6 +40,9 @@
             this.textBoxNama = new System.Windows.Forms.TextBox();
             this.label3 = new System.Windows.Forms.Label();
             this.buttonSimpan = new System.Windows.Forms.Button();
+            this.activateMessagingBtn = new System.Windows.Forms.Button();
+            this.stopMessagingBtn = new System.Windows.Forms.Button();
+            this.messagingTimer = new System.Windows.Forms.Timer(this.components);
             ((System.ComponentModel.ISupportInitialize)(this.iB)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.imageBox1)).BeginInit();
             this.SuspendLayout();
@@ -147,11 +151,38 @@
             this.buttonSimpan.UseVisualStyleBackColor = true;
             this.buttonSimpan.Click += new System.EventHandler(this.button1_Click);
             // 
+            // activateMessagingBtn
+            // 
+            this.activateMessagingBtn.Location = new System.Drawing.Point(556, 178);
+            this.activateMessagingBtn.Name = "activateMessagingBtn";
+            this.activateMessagingBtn.Size = new System.Drawing.Size(161, 23);
+            this.activateMessagingBtn.TabIndex = 12;
+            this.activateMessagingBtn.Text = "Start Messaging";
+            this.activateMessagingBtn.UseVisualStyleBackColor = true;
+            this.activateMessagingBtn.Click += new System.EventHandler(this.activateMessagingBtn_Click);
+            // 
+            // stopMessagingBtn
+            // 
+            this.stopMessagingBtn.Location = new System.Drawing.Point(556, 207);
+            this.stopMessagingBtn.Name = "stopMessagingBtn";
+            this.stopMessagingBtn.Size = new System.Drawing.Size(161, 23);
+            this.stopMessagingBtn.TabIndex = 13;
+            this.stopMessagingBtn.Text = "Stop Messaging";
+            this.stopMessagingBtn.UseVisualStyleBackColor = true;
+            this.stopMessagingBtn.Click += new System.EventHandler(this.stopMessagingBtn_Click);
+            // 
+            // messagingTimer
+            // 
+            this.messagingTimer.Interval = 500;
+            this.messagingTimer.Tick += new System.EventHandler(this.messagingTimer_Tick);
+            // 
             // FormDuble
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(734, 372);
+            this.Controls.Add(this.stopMessagingBtn);
+            this.Controls.Add(this.activateMessagingBtn);
             this.Controls.Add(this.buttonSimpan);
             this.Controls.Add(this.label3);
             this.Controls.Add(this.textBoxNama);
@@ -186,6 +217,9 @@
         private System.Windows.Forms.TextBox textBoxNama;
         private System.Windows.Forms.Label label3;
         private System.Windows.Forms.Button buttonSimpan;
+        private System.Windows.Forms.Button activateMessagingBtn;
+        private System.Windows.Forms.Button stopMessagingBtn;
+        private System.Windows.Forms.Timer messagingTimer;
     }
 }
 

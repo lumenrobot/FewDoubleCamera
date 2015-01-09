@@ -11,6 +11,11 @@ using Emgu.CV;
 using Emgu.CV.Structure;
 using Emgu.Util;
 using Emgu.CV.CvEnum;
+using RabbitMQ.Client;
+using RabbitMQ.Client.MessagePatterns;
+using RabbitMQ.Client.Events;
+using System.Diagnostics;
+using Newtonsoft.Json;
 
 namespace FewDoubleCamera
 {
@@ -29,6 +34,9 @@ namespace FewDoubleCamera
         List<string> NamePersons = new List<string>();
         int ContTrain, NumLabels, t;
         string name, names = null;
+        private IModel channel;
+        private Subscription sub;
+
         public FormDuble()
         {
             InitializeComponent();
@@ -215,6 +223,50 @@ namespace FewDoubleCamera
                 MessageBox.Show("Keslahan Proses Training", "Kesalahan Training", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
             }
 
+            }
+        }
+
+        private void activateMessagingBtn_Click(object sender, EventArgs e)
+        {
+            ConnectionFactory factory = new ConnectionFactory();
+            factory.Uri = "amqp://guest:guest@localhost/%2F";
+            IConnection conn = factory.CreateConnection();
+            channel = conn.CreateModel();
+            conn.AutoClose = true;
+            Debug.WriteLine("Connected to AMQP broker '{0}:{1}'", conn.RemoteEndPoint, conn.RemotePort);
+
+            QueueDeclareOk cameraStream = channel.QueueDeclare("", false, true, true, null);
+            Debug.WriteLine("Declared anonymous exclusive queue '{0}'", (object) cameraStream.QueueName);
+            string cameraStreamKey = "arkan.camera.stream";
+            channel.QueueBind(cameraStream.QueueName, "amq.topic", cameraStreamKey);
+            Debug.WriteLine("Bound queue '{0}' to topic '{1}'", cameraStream.QueueName, cameraStreamKey);
+            sub = new Subscription(channel, cameraStream.QueueName);
+            messagingTimer.Enabled = true;
+        }
+
+        private void stopMessagingBtn_Click(object sender, EventArgs e)
+        {
+            messagingTimer.Enabled = false;
+            sub.Close();
+            sub = null;
+            channel.Close();
+            channel = null;
+        }
+
+        private void messagingTimer_Tick(object sender, EventArgs e)
+        {
+            BasicDeliverEventArgs ev;
+            if (sub.Next(1, out ev))
+            {
+                string bodyStr = Encoding.UTF8.GetString(ev.Body);
+                Debug.WriteLine("Got message: {0}", bodyStr);
+                JsonSerializerSettings jsonSettings = new JsonSerializerSettings { TypeNameHandling = TypeNameHandling.Objects };
+                ImageObject imageObj = JsonConvert.DeserializeObject<ImageObject>(bodyStr, jsonSettings);
+                sub.Ack(ev);
+            }
+            else
+            {
+                Debug.WriteLine("No incoming ImageObject message");
             }
         }
     }

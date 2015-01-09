@@ -48,38 +48,40 @@ namespace FewDoubleCamera
         {
 
         }
-        private void prossesFrame(object sender, EventArgs args)
-        {
 
-            Image<Bgr, Byte> imageFrame = capture.QueryFrame().Resize(320, 240, Emgu.CV.CvEnum.INTER.CV_INTER_CUBIC); 
+        private List<HumanFaceRecognized> processFrame(Image<Bgr, byte> capturedFrame)
+        {
+            List<HumanFaceRecognized> recognizeds = new List<HumanFaceRecognized>();
+            Image<Bgr, Byte> imageFrame = capturedFrame.Resize(320, 240, Emgu.CV.CvEnum.INTER.CV_INTER_CUBIC);
             if (imageFrame != null)
             {
                 Image<Gray, byte> grayframe = imageFrame.Convert<Gray, byte>();
                 var faces = grayframe.DetectHaarCascade(haar, 1.1, 1,
                                         HAAR_DETECTION_TYPE.DO_CANNY_PRUNING,
                                         new Size(20, 20))[0];
-                int TotalFaces = faces.Length;   
+                int TotalFaces = faces.Length;
                 lt.Text = Convert.ToString(TotalFaces);
-              
 
                 foreach (var face in faces)
                 {
                     t = t + 1;
                     result = imageFrame.Copy(face.rect).Convert<Gray, byte>().Resize(100, 100, Emgu.CV.CvEnum.INTER.CV_INTER_CUBIC);
                     imageFrame.Draw(face.rect, new Bgr(Color.Red), 2);
-                     if (trainingImages.ToArray().Length != 0)
+                    if (trainingImages.ToArray().Length != 0)
                     {
                         MCvTermCriteria termCrit = new MCvTermCriteria(ContTrain, 0.001);
                         EigenObjectRecognizer recognizer = new EigenObjectRecognizer(
-                        trainingImages.ToArray(),
-                        labels.ToArray(),
-                        3000,
-                        ref termCrit);
-                        name = recognizer.Recognize(result);             
+                            trainingImages.ToArray(),
+                            labels.ToArray(),
+                            3000,
+                            ref termCrit);
+                        name = recognizer.Recognize(result);
                         imageFrame.Draw(name, ref font, new Point(face.rect.X - 2, face.rect.Y - 2), new Bgr(Color.Yellow));
+                        HumanFaceRecognized recognized = new HumanFaceRecognized(name, new Vector3(face.rect.X, face.rect.Y, 0), new Vector3(face.rect.Right, face.rect.Bottom, 0));
+                        recognizeds.Add(recognized);
                     }
-                   // NamePersons[t-1] = name;
-                   // NamePersons.Add("");
+                    // NamePersons[t-1] = name;
+                    // NamePersons.Add("");
                     //Set the number of faces detected on the scene
                     //label3.Text = faces.Length.ToString();
                 }
@@ -88,14 +90,19 @@ namespace FewDoubleCamera
                 {
                         names = names + NamePersons[nnn] + ", ";
                 }*/
-                   iB.Image = imageFrame;
-                  // names = "";
-                    //Clear the list(vector) of names
-                  NamePersons.Clear();
+                iB.Image = imageFrame;
+                // names = "";
+                //Clear the list(vector) of names
+                NamePersons.Clear();
             }
+            return recognizeds;
         }
 
-
+        private void prossesFrame(object sender, EventArgs args)
+        {
+            Image<Bgr, byte> capturedFrame = capture.QueryFrame();
+            processFrame(capturedFrame);
+        }
 
         private void bStart_Click(object sender, EventArgs e)
         {
@@ -145,8 +152,6 @@ namespace FewDoubleCamera
 
         private void btnAmbil_Click(object sender, EventArgs e)
         {
-            
-
             try
             {
                
@@ -190,6 +195,7 @@ namespace FewDoubleCamera
                     filewajah = "wajah" + no + ".bmp";
                     trainingImages.Add(new Image<Gray, byte>(Application.StartupPath + "/wajah/" + filewajah));
                     labels.Add(Labels[no]);
+                    Debug.WriteLine("Added face '{0}' from '{1}'", Labels[no], filewajah);
                 }
             }
             catch 
@@ -228,6 +234,8 @@ namespace FewDoubleCamera
 
         private void activateMessagingBtn_Click(object sender, EventArgs e)
         {
+            ambilData();
+
             ConnectionFactory factory = new ConnectionFactory();
             factory.Uri = "amqp://guest:guest@localhost/%2F";
             IConnection conn = factory.CreateConnection();
@@ -256,18 +264,64 @@ namespace FewDoubleCamera
         private void messagingTimer_Tick(object sender, EventArgs e)
         {
             BasicDeliverEventArgs ev;
-            if (sub.Next(1, out ev))
+            if (sub.Next(0, out ev))
             {
-                string bodyStr = Encoding.UTF8.GetString(ev.Body);
-                Debug.WriteLine("Got message: {0}", bodyStr);
-                JsonSerializerSettings jsonSettings = new JsonSerializerSettings { TypeNameHandling = TypeNameHandling.Objects };
-                ImageObject imageObj = JsonConvert.DeserializeObject<ImageObject>(bodyStr, jsonSettings);
-                Debug.WriteLine("Got object: {0}", imageObj);
-                sub.Ack(ev);
+                try
+                {
+                    string bodyStr = Encoding.UTF8.GetString(ev.Body);
+                    Debug.WriteLine("Got message: {0}", bodyStr);
+                    JsonSerializerSettings jsonSettings = new JsonSerializerSettings { TypeNameHandling = TypeNameHandling.Objects };
+                    ImageObject imageObj = JsonConvert.DeserializeObject<ImageObject>(bodyStr, jsonSettings);
+                    Debug.WriteLine("Got object: {0}", imageObj);
+                    string base64 = null;
+                    if (imageObj.ContentUrl.StartsWith("data:image/jpeg;base64,")) {
+                        base64 = imageObj.ContentUrl.Replace("data:image/jpeg;base64,", "");
+                    }
+                    if (imageObj.ContentUrl.StartsWith("data:image/png;base64,")) {
+                        base64 = imageObj.ContentUrl.Replace("data:image/png;base64,", "");
+                    }
+                    if (imageObj.ContentUrl.StartsWith("data:image/bmp;base64,")) {
+                        base64 = imageObj.ContentUrl.Replace("data:image/bmp;base64,", "");
+                    }
+                    if (imageObj.ContentUrl.StartsWith("data:image/gif;base64,")) {
+                        base64 = imageObj.ContentUrl.Replace("data:image/gif;base64,", "");
+                    }
+                    if (base64 != null) {
+                        byte[] bytes = Convert.FromBase64String(base64);
+                        using (MemoryStream ms = new MemoryStream(bytes))
+                        {
+                            Bitmap bmp = (Bitmap) Image.FromStream(ms);
+                            Image<Bgr, byte> receivedImage = new Image<Bgr, byte>(bmp);
+                            List<HumanFaceRecognized> recognizeds = processFrame(receivedImage);
+                            Debug.WriteLine("Recognized {0} faces: {1}", recognizeds.Count, recognizeds);
+                            const string humanRecognitionKey = "lumen.arkan.human.recognition";
+                            foreach (HumanFaceRecognized recognized in recognizeds) {
+                                string recognizedStr = JsonConvert.SerializeObject(recognized, Formatting.Indented);
+                                Debug.WriteLine("Sending to {0}: {1}", humanRecognitionKey, recognizedStr);
+                                byte[] recognizedBytes = Encoding.UTF8.GetBytes(recognizedStr);
+                                channel.BasicPublish("amq.topic", humanRecognitionKey, null, recognizedBytes);
+                            }
+                        }
+                    } else {
+                        MessageBox.Show("Unsupported content URI: " + imageObj.ContentUrl);
+                    }
+                }
+                finally
+                {
+                    sub.Ack(ev);
+                }
             }
             else
             {
                 Debug.WriteLine("No incoming ImageObject message");
+            }
+        }
+
+        private void FormDuble_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            if (sub != null)
+            {
+                stopMessagingBtn.PerformClick();
             }
         }
     }

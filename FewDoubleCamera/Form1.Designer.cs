@@ -196,6 +196,7 @@
             this.Controls.Add(this.iB);
             this.Name = "FormDuble";
             this.Text = "DubleKamera";
+            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.FormDuble_FormClosing);
             this.Load += new System.EventHandler(this.FormDuble_Load);
             ((System.ComponentModel.ISupportInitialize)(this.iB)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.imageBox1)).EndInit();

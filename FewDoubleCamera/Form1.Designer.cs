@@ -39,8 +39,10 @@
             this.textBoxNama = new System.Windows.Forms.TextBox();
             this.label3 = new System.Windows.Forms.Label();
             this.buttonSimpan = new System.Windows.Forms.Button();
+            this.ib2 = new Emgu.CV.UI.ImageBox();
             ((System.ComponentModel.ISupportInitialize)(this.iB)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.imageBox1)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.ib2)).BeginInit();
             this.SuspendLayout();
             // 
             // iB
@@ -147,11 +149,20 @@
             this.buttonSimpan.UseVisualStyleBackColor = true;
             this.buttonSimpan.Click += new System.EventHandler(this.button1_Click);
             // 
+            // ib2
+            // 
+            this.ib2.Location = new System.Drawing.Point(556, 144);
+            this.ib2.Name = "ib2";
+            this.ib2.Size = new System.Drawing.Size(309, 203);
+            this.ib2.TabIndex = 2;
+            this.ib2.TabStop = false;
+            // 
             // FormDuble
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(734, 372);
+            this.ClientSize = new System.Drawing.Size(896, 372);
+            this.Controls.Add(this.ib2);
             this.Controls.Add(this.buttonSimpan);
             this.Controls.Add(this.label3);
             this.Controls.Add(this.textBoxNama);
@@ -165,9 +176,12 @@
             this.Controls.Add(this.iB);
             this.Name = "FormDuble";
             this.Text = "DubleKamera";
+            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.FormDuble_FormClosing);
             this.Load += new System.EventHandler(this.FormDuble_Load);
+            this.MouseClick += new System.Windows.Forms.MouseEventHandler(this.FormDuble_MouseClick);
             ((System.ComponentModel.ISupportInitialize)(this.iB)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.imageBox1)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.ib2)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -186,6 +200,7 @@
         private System.Windows.Forms.TextBox textBoxNama;
         private System.Windows.Forms.Label label3;
         private System.Windows.Forms.Button buttonSimpan;
+        private Emgu.CV.UI.ImageBox ib2;
     }
 }
 

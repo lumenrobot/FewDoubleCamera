@@ -11,16 +11,19 @@ using Emgu.CV;
 using Emgu.CV.Structure;
 using Emgu.Util;
 using Emgu.CV.CvEnum;
+using System.Speech.Synthesis;
+using System.Diagnostics;
 
 namespace FewDoubleCamera
 {
     public partial class FormDuble : Form
     {
+        String n;
         private Capture capture;
         private bool progres;
         private HaarCascade haar; // Detector menggunakan Viola=John clasifier
-       
-
+        int TotalFaces,tf;
+        bool sudah = false;
         MCvFont font = new MCvFont(FONT.CV_FONT_HERSHEY_TRIPLEX, 0.5d, 0.5d);
         Image<Gray, byte> result = null, TrainedFace = null;
         Image<Gray, byte> gray = null;
@@ -29,11 +32,13 @@ namespace FewDoubleCamera
         List<string> NamePersons = new List<string>();
         int ContTrain, NumLabels, t;
         string name, names = null;
+        SpeechSynthesizer synthesizer;
+         //bool sudah = false;
+
         public FormDuble()
         {
             InitializeComponent();
             this.Text = "Pengenalan Wajah";
-
         }
 
         private void label1_Click(object sender, EventArgs e)
@@ -42,24 +47,24 @@ namespace FewDoubleCamera
         }
         private void prossesFrame(object sender, EventArgs args)
         {
-
-            Image<Bgr, Byte> imageFrame = capture.QueryFrame().Resize(320, 240, Emgu.CV.CvEnum.INTER.CV_INTER_CUBIC); 
+            Image<Bgr, Byte> imageFrame = capture.QueryFrame().Resize(320, 240, Emgu.CV.CvEnum.INTER.CV_INTER_CUBIC); ;
+            Image<Bgr, Byte> ifr = capture.QueryFrame().Resize(320, 240, Emgu.CV.CvEnum.INTER.CV_INTER_CUBIC);
             if (imageFrame != null)
             {
+                ib2.Image = ifr;
                 Image<Gray, byte> grayframe = imageFrame.Convert<Gray, byte>();
                 var faces = grayframe.DetectHaarCascade(haar, 1.1, 1,
                                         HAAR_DETECTION_TYPE.DO_CANNY_PRUNING,
                                         new Size(20, 20))[0];
-                int TotalFaces = faces.Length;   
+                TotalFaces = faces.Length;   
                 lt.Text = Convert.ToString(TotalFaces);
-              
 
                 foreach (var face in faces)
                 {
                     t = t + 1;
                     result = imageFrame.Copy(face.rect).Convert<Gray, byte>().Resize(100, 100, Emgu.CV.CvEnum.INTER.CV_INTER_CUBIC);
                     imageFrame.Draw(face.rect, new Bgr(Color.Red), 2);
-                     if (trainingImages.ToArray().Length != 0)
+                    if (trainingImages.ToArray().Length != 0)
                     {
                         MCvTermCriteria termCrit = new MCvTermCriteria(ContTrain, 0.001);
                         EigenObjectRecognizer recognizer = new EigenObjectRecognizer(
@@ -67,22 +72,42 @@ namespace FewDoubleCamera
                         labels.ToArray(),
                         3000,
                         ref termCrit);
-                        name = recognizer.Recognize(result);             
+                        name = recognizer.Recognize(result);
                         imageFrame.Draw(name, ref font, new Point(face.rect.X - 2, face.rect.Y - 2), new Bgr(Color.Yellow));
                     }
-                   // NamePersons[t-1] = name;
-                   // NamePersons.Add("");
-                    //Set the number of faces detected on the scene
-                    //label3.Text = faces.Length.ToString();
                 }
-                /*t = 0;
-                for (int nnn = 0; nnn < faces.Length; nnn++)
-                {
-                        names = names + NamePersons[nnn] + ", ";
-                }*/
-                   iB.Image = imageFrame;
-                  // names = "";
-                    //Clear the list(vector) of names
+                  iB.Image = imageFrame;
+                  synthesizer = new SpeechSynthesizer();
+                  synthesizer.Volume = 100;  // 0...100
+                  synthesizer.Rate = -2;
+                  //synthesizer.SpeakAsync(n + ", i see you with some one");
+                 if (tf != TotalFaces) sudah = false;
+                   n = "Hello " + name;
+                   //synthesizer = new SpeechSynthesizer(); 
+                   if (TotalFaces > 1 && TotalFaces != 0 && sudah!=true)
+                   {
+                      // synthesizer = new SpeechSynthesizer(); 
+                       tf=TotalFaces;
+                       synthesizer.Speak(n + ", i see you with some one");
+                       sudah = true;
+                 
+                   }
+                   else if (TotalFaces == 1 && sudah!=true)
+                   {
+                       // synthesizer=new SpeechSynthesizer();
+                       tf = TotalFaces;
+                       synthesizer.Speak(n + ", i see you Alone");
+                       sudah = true;
+                   }
+                   else if ( sudah!=true)
+                   {
+                        //synthesizer = new SpeechSynthesizer(); 
+                       tf = TotalFaces;
+                       synthesizer.Speak("i do not see any one");
+                       sudah = true;
+                   }
+                   synthesizer.Dispose();
+                  
                   NamePersons.Clear();
             }
         }
@@ -92,6 +117,11 @@ namespace FewDoubleCamera
         private void bStart_Click(object sender, EventArgs e)
         {
             ambilData();
+
+            synthesizer = new SpeechSynthesizer();
+            synthesizer.Volume = 100;  // 0...100
+            synthesizer.Rate = -2;
+
             int number = 1;
             number = int.Parse(cBKamera.Text);
             #region
@@ -113,8 +143,7 @@ namespace FewDoubleCamera
                 {
                     bStart.Text = "Start Deteksi";
                     Application.Idle -= prossesFrame;
-
-                }
+                 }
                 else
                 {
                     bStart.Text = "Stop";
@@ -128,6 +157,7 @@ namespace FewDoubleCamera
         private void FormDuble_Load(object sender, EventArgs e)
         {
             haar = new HaarCascade("haarcascade_frontalface_alt_tree.xml");
+           
         }
 
         private void label3_Click(object sender, EventArgs e)
@@ -162,7 +192,7 @@ namespace FewDoubleCamera
             {
                 //Jika terjadi kesalahan
             }
-            //trainingImages.Add(TrainedFace);
+           
             imageBox1.Image = TrainedFace;
         }
 
@@ -196,7 +226,7 @@ namespace FewDoubleCamera
                 MessageBox.Show("Nama Pemilik Gambar Harus Terisi", "Data Pelatihan", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
             else
             {
-               // TrainedFace = result.Resize(100, 100, Emgu.CV.CvEnum.INTER.CV_INTER_CUBIC);
+               
                 trainingImages.Add(TrainedFace);
                 labels.Add(textBoxNama.Text);
 
@@ -215,6 +245,20 @@ namespace FewDoubleCamera
                 MessageBox.Show("Keslahan Proses Training", "Kesalahan Training", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
             }
 
+            }
+        }
+
+        private void FormDuble_MouseClick(object sender, MouseEventArgs e)
+        {
+            sudah = false;
+        }
+
+        private void FormDuble_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            if (synthesizer != null)
+            {
+                synthesizer.Dispose();
+                synthesizer = null;
             }
         }
     }

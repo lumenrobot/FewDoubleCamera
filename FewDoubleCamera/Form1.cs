@@ -45,6 +45,9 @@ namespace FewDoubleCamera
         {
             InitializeComponent();
             this.Text = "Pengenalan Wajah";
+            synthesizer = new SpeechSynthesizer();
+            synthesizer.Volume = 100;  // 0...100
+            synthesizer.Rate = -2;
         }
 
         private void label1_Click(object sender, EventArgs e)
@@ -86,9 +89,6 @@ namespace FewDoubleCamera
                     }
                 }
                   iB.Image = imageFrame;
-                  synthesizer = new SpeechSynthesizer();
-                  synthesizer.Volume = 100;  // 0...100
-                  synthesizer.Rate = -2;
                   //synthesizer.SpeakAsync(n + ", i see you with some one");
                  if (tf != TotalFaces) sudah = false;
                    n = "Hello " + name;
@@ -97,7 +97,7 @@ namespace FewDoubleCamera
                    {
                       // synthesizer = new SpeechSynthesizer(); 
                        tf=TotalFaces;
-                       synthesizer.Speak(n + ", i see you with some one");
+                       synthesizer.SpeakAsync(n + ", i see you with some one");
                        sudah = true;
                  
                    }
@@ -105,17 +105,16 @@ namespace FewDoubleCamera
                    {
                        // synthesizer=new SpeechSynthesizer();
                        tf = TotalFaces;
-                       synthesizer.Speak(n + ", i see you Alone");
+                       synthesizer.SpeakAsync(n + ", i see you Alone");
                        sudah = true;
                    }
                    else if ( sudah!=true)
                    {
                         //synthesizer = new SpeechSynthesizer(); 
                        tf = TotalFaces;
-                       synthesizer.Speak("i do not see any one");
+                       synthesizer.SpeakAsync("i do not see any one");
                        sudah = true;
                    }
-                   synthesizer.Dispose();
                   
                   //Clear the list(vector) of names
                   NamePersons.Clear();
@@ -132,10 +131,6 @@ namespace FewDoubleCamera
         private void bStart_Click(object sender, EventArgs e)
         {
             ambilData();
-
-            synthesizer = new SpeechSynthesizer();
-            synthesizer.Volume = 100;  // 0...100
-            synthesizer.Rate = -2;
 
             int number = 1;
             number = int.Parse(cBKamera.Text);

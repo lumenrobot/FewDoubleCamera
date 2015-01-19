@@ -324,7 +324,7 @@ namespace FewDoubleCamera
                             Image<Bgr, byte> receivedImage = new Image<Bgr, byte>(bmp);
                             List<HumanFaceRecognized> recognizeds = processFrame(receivedImage);
                             Debug.WriteLine("Recognized {0} faces: {1}", recognizeds.Count, recognizeds);
-                            const string humanRecognitionKey = "lumen.arkan.human.recognition";
+                            const string humanRecognitionKey = "lumen.arkan.face.recognition";
                             foreach (HumanFaceRecognized recognized in recognizeds) {
                                 string recognizedStr = JsonConvert.SerializeObject(recognized, Formatting.Indented);
                                 Debug.WriteLine("Sending to {0}: {1}", humanRecognitionKey, recognizedStr);

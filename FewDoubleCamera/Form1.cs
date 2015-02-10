@@ -62,6 +62,8 @@ namespace FewDoubleCamera
             if (imageFrame != null)
             {
                 ib2.Image = imageFrame;
+
+                iB.Image = imageFrame;
                 Image<Gray, byte> grayframe = imageFrame.Convert<Gray, byte>();
                 var faces = grayframe.DetectHaarCascade(haar, 1.1, 1,
                                         HAAR_DETECTION_TYPE.DO_CANNY_PRUNING,
@@ -88,7 +90,6 @@ namespace FewDoubleCamera
                         recognizeds.Add(recognized);
                     }
                 }
-                  iB.Image = imageFrame;
                   //synthesizer.SpeakAsync(n + ", i see you with some one");
                  if (tf != TotalFaces) sudah = false;
                    n = "Hello " + name;
@@ -267,19 +268,25 @@ namespace FewDoubleCamera
             ambilData();
 
             ConnectionFactory factory = new ConnectionFactory();
-            factory.Uri = "amqp://guest:guest@localhost/%2F";
+            factory.Uri = "amqp://lumen:lumen@167.205.66.130/%2F";
             IConnection conn = factory.CreateConnection();
             channel = conn.CreateModel();
             conn.AutoClose = true;
             Debug.WriteLine("Connected to AMQP broker '{0}:{1}'", conn.RemoteEndPoint, conn.RemotePort);
 
-            QueueDeclareOk cameraStream = channel.QueueDeclare("", false, true, true, null);
+            var arg = new Dictionary<string, object>
+            {
+                {"x-message-ttl",50}
+            };
+            QueueDeclareOk cameraStream = channel.QueueDeclare("", false, true, true, arg);
             Debug.WriteLine("Declared anonymous exclusive queue '{0}'", (object) cameraStream.QueueName);
-            string cameraStreamKey = "lumen.arkan.camera.stream";
+            string cameraStreamKey = "avatar.NAO.data.image";
             channel.QueueBind(cameraStream.QueueName, "amq.topic", cameraStreamKey);
             Debug.WriteLine("Bound queue '{0}' to topic '{1}'", cameraStream.QueueName, cameraStreamKey);
-            sub = new Subscription(channel, cameraStream.QueueName);
+            
+            sub = new Subscription(channel, cameraStream.QueueName,true);
             messagingTimer.Enabled = true;
+            messagingTimer.Interval = 10;
         }
 
         private void stopMessagingBtn_Click(object sender, EventArgs e)
@@ -304,35 +311,43 @@ namespace FewDoubleCamera
                     ImageObject imageObj = JsonConvert.DeserializeObject<ImageObject>(bodyStr, jsonSettings);
                     Debug.WriteLine("Got object: {0}", imageObj);
                     string base64 = null;
-                    if (imageObj.ContentUrl.StartsWith("data:image/jpeg;base64,")) {
+                    if (imageObj.ContentUrl.StartsWith("data:image/jpeg;base64,"))
+                    {
                         base64 = imageObj.ContentUrl.Replace("data:image/jpeg;base64,", "");
                     }
-                    if (imageObj.ContentUrl.StartsWith("data:image/png;base64,")) {
+                    if (imageObj.ContentUrl.StartsWith("data:image/png;base64,"))
+                    {
                         base64 = imageObj.ContentUrl.Replace("data:image/png;base64,", "");
                     }
-                    if (imageObj.ContentUrl.StartsWith("data:image/bmp;base64,")) {
+                    if (imageObj.ContentUrl.StartsWith("data:image/bmp;base64,"))
+                    {
                         base64 = imageObj.ContentUrl.Replace("data:image/bmp;base64,", "");
                     }
-                    if (imageObj.ContentUrl.StartsWith("data:image/gif;base64,")) {
+                    if (imageObj.ContentUrl.StartsWith("data:image/gif;base64,"))
+                    {
                         base64 = imageObj.ContentUrl.Replace("data:image/gif;base64,", "");
                     }
-                    if (base64 != null) {
+                    if (base64 != null)
+                    {
                         byte[] bytes = Convert.FromBase64String(base64);
                         using (MemoryStream ms = new MemoryStream(bytes))
                         {
-                            Bitmap bmp = (Bitmap) Image.FromStream(ms);
+                            Bitmap bmp = (Bitmap)Image.FromStream(ms);
                             Image<Bgr, byte> receivedImage = new Image<Bgr, byte>(bmp);
                             List<HumanFaceRecognized> recognizeds = processFrame(receivedImage);
                             Debug.WriteLine("Recognized {0} faces: {1}", recognizeds.Count, recognizeds);
                             const string humanRecognitionKey = "lumen.arkan.face.recognition";
-                            foreach (HumanFaceRecognized recognized in recognizeds) {
+                            foreach (HumanFaceRecognized recognized in recognizeds)
+                            {
                                 string recognizedStr = JsonConvert.SerializeObject(recognized, Formatting.Indented);
                                 Debug.WriteLine("Sending to {0}: {1}", humanRecognitionKey, recognizedStr);
                                 byte[] recognizedBytes = Encoding.UTF8.GetBytes(recognizedStr);
                                 channel.BasicPublish("amq.topic", humanRecognitionKey, null, recognizedBytes);
                             }
                         }
-                    } else {
+                    }
+                    else
+                    {
                         MessageBox.Show("Unsupported content URI: " + imageObj.ContentUrl);
                     }
                 }

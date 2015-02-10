@@ -118,12 +118,13 @@
             // 
             // btnAmbil
             // 
+            this.btnAmbil.BackColor = System.Drawing.SystemColors.Control;
             this.btnAmbil.Location = new System.Drawing.Point(360, 219);
             this.btnAmbil.Name = "btnAmbil";
             this.btnAmbil.Size = new System.Drawing.Size(150, 23);
             this.btnAmbil.TabIndex = 8;
             this.btnAmbil.Text = "Ambil Sample";
-            this.btnAmbil.UseVisualStyleBackColor = true;
+            this.btnAmbil.UseVisualStyleBackColor = false;
             this.btnAmbil.Click += new System.EventHandler(this.btnAmbil_Click);
             // 
             // textBoxNama

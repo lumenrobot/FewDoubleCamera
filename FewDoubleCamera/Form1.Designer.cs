@@ -52,9 +52,9 @@
             // iB
             // 
             this.iB.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
-            this.iB.Location = new System.Drawing.Point(0, 0);
+            this.iB.Location = new System.Drawing.Point(12, 40);
             this.iB.Name = "iB";
-            this.iB.Size = new System.Drawing.Size(344, 285);
+            this.iB.Size = new System.Drawing.Size(320, 240);
             this.iB.TabIndex = 2;
             this.iB.TabStop = false;
             // 

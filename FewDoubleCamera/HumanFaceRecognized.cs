@@ -8,6 +8,8 @@ namespace FewDoubleCamera
 {
     class HumanFaceRecognized
     {
+        [JsonProperty("index")]
+        public int Index { get; set; }
         [JsonProperty("name")]
         public String Name { get; set; }
         [JsonProperty("minPoint")]

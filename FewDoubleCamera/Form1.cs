@@ -40,7 +40,6 @@ namespace FewDoubleCamera
          //bool sudah = false;
         private IModel channel;
         private Subscription sub;
-        long receivedImageCount = 0;
 
         public FormDuble()
         {
@@ -270,7 +269,6 @@ namespace FewDoubleCamera
 
             ConnectionFactory factory = new ConnectionFactory();
             factory.Uri = "amqp://lumen:lumen@167.205.66.130/%2F";
-            Debug.WriteLine("Connecting to AMQP ...");
             IConnection conn = factory.CreateConnection();
             channel = conn.CreateModel();
             conn.AutoClose = true;
@@ -278,7 +276,7 @@ namespace FewDoubleCamera
 
             var arg = new Dictionary<string, object>
             {
-                //{"x-message-ttl", 50}
+                {"x-message-ttl",50}
             };
             QueueDeclareOk cameraStream = channel.QueueDeclare("", false, true, true, arg);
             Debug.WriteLine("Declared anonymous exclusive queue '{0}'", (object) cameraStream.QueueName);
@@ -288,7 +286,7 @@ namespace FewDoubleCamera
             
             sub = new Subscription(channel, cameraStream.QueueName,true);
             messagingTimer.Enabled = true;
-            messagingTimer.Interval = 10;
+            messagingTimer.Interval = 100;
         }
 
         private void stopMessagingBtn_Click(object sender, EventArgs e)
@@ -302,93 +300,66 @@ namespace FewDoubleCamera
 
         private void messagingTimer_Tick(object sender, EventArgs e)
         {
-            //Debug.WriteLine("messaging timer in");
-            string lastMsg = null;
-
-            /*
-            foreach (BasicDeliverEventArgs ev in sub)
-            {
-                Debug.WriteLine("while loop");
-                try
-                {
-                    string bodyStr = Encoding.UTF8.GetString(ev.Body);
-                    Debug.WriteLine("Got message: {0}", (object) bodyStr);
-                    receivedImageCount++;
-                    lastMsg = bodyStr;
-                }
-                finally
-                {
-                    sub.Ack(ev);
-                }
-            }
-             * */
             BasicDeliverEventArgs ev;
-            while (sub.Next(1, out ev))
+            if (sub.Next(0, out ev))
             {
-                Debug.WriteLine("while loop");
                 try
                 {
                     string bodyStr = Encoding.UTF8.GetString(ev.Body);
                     Debug.WriteLine("Got message: {0}", bodyStr);
-                    receivedImageCount++;
-                    lastMsg = bodyStr;
+                    JsonSerializerSettings jsonSettings = new JsonSerializerSettings { TypeNameHandling = TypeNameHandling.Objects };
+                    ImageObject imageObj = JsonConvert.DeserializeObject<ImageObject>(bodyStr, jsonSettings);
+                    Debug.WriteLine("Got object: {0}", imageObj);
+                    string base64 = null;
+                    if (imageObj.ContentUrl.StartsWith("data:image/jpeg;base64,"))
+                    {
+                        base64 = imageObj.ContentUrl.Replace("data:image/jpeg;base64,", "");
+                    }
+                    if (imageObj.ContentUrl.StartsWith("data:image/png;base64,"))
+                    {
+                        base64 = imageObj.ContentUrl.Replace("data:image/png;base64,", "");
+                    }
+                    if (imageObj.ContentUrl.StartsWith("data:image/bmp;base64,"))
+                    {
+                        base64 = imageObj.ContentUrl.Replace("data:image/bmp;base64,", "");
+                    }
+                    if (imageObj.ContentUrl.StartsWith("data:image/gif;base64,"))
+                    {
+                        base64 = imageObj.ContentUrl.Replace("data:image/gif;base64,", "");
+                    }
+                    if (base64 != null)
+                    {
+                        byte[] bytes = Convert.FromBase64String(base64);
+                        using (MemoryStream ms = new MemoryStream(bytes))
+                        {
+                            Bitmap bmp = (Bitmap)Image.FromStream(ms);
+                            Image<Bgr, byte> receivedImage = new Image<Bgr, byte>(bmp);
+                            List<HumanFaceRecognized> recognizeds = processFrame(receivedImage);
+                            Debug.WriteLine("Recognized {0} faces: {1}", recognizeds.Count, recognizeds);
+                            const string humanRecognitionKey = "lumen.arkan.face.recognition";
+                            foreach (HumanFaceRecognized recognized in recognizeds)
+                            {
+                                string recognizedStr = JsonConvert.SerializeObject(recognized, Formatting.Indented);
+                                Debug.WriteLine("Sending to {0}: {1}", humanRecognitionKey, recognizedStr);
+                                byte[] recognizedBytes = Encoding.UTF8.GetBytes(recognizedStr);
+                                channel.BasicPublish("amq.topic", humanRecognitionKey, null, recognizedBytes);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        MessageBox.Show("Unsupported content URI: " + imageObj.ContentUrl);
+                    }
                 }
                 finally
                 {
-                    sub.Ack(ev);
+                    //sub.Ack(ev);
                 }
             }
-
-            if (lastMsg != null) {
-                JsonSerializerSettings jsonSettings = new JsonSerializerSettings { TypeNameHandling = TypeNameHandling.Objects };
-                ImageObject imageObj = JsonConvert.DeserializeObject<ImageObject>(lastMsg, jsonSettings);
-                Debug.WriteLine("Got object after {0} images: {1}", receivedImageCount, imageObj);
-                string base64 = null;
-                if (imageObj.ContentUrl.StartsWith("data:image/jpeg;base64,"))
-                {
-                    base64 = imageObj.ContentUrl.Replace("data:image/jpeg;base64,", "");
-                }
-                if (imageObj.ContentUrl.StartsWith("data:image/png;base64,"))
-                {
-                    base64 = imageObj.ContentUrl.Replace("data:image/png;base64,", "");
-                }
-                if (imageObj.ContentUrl.StartsWith("data:image/bmp;base64,"))
-                {
-                    base64 = imageObj.ContentUrl.Replace("data:image/bmp;base64,", "");
-                }
-                if (imageObj.ContentUrl.StartsWith("data:image/gif;base64,"))
-                {
-                    base64 = imageObj.ContentUrl.Replace("data:image/gif;base64,", "");
-                }
-                if (base64 != null)
-                {
-                    byte[] bytes = Convert.FromBase64String(base64);
-                    using (MemoryStream ms = new MemoryStream(bytes))
-                    {
-                        Bitmap bmp = (Bitmap)Image.FromStream(ms);
-                        Image<Bgr, byte> receivedImage = new Image<Bgr, byte>(bmp);
-                        List<HumanFaceRecognized> recognizeds = processFrame(receivedImage);
-                        Debug.WriteLine("Recognized {0} faces: {1}", recognizeds.Count, recognizeds);
-                        const string humanRecognitionKey = "lumen.arkan.face.recognition";
-                        foreach (HumanFaceRecognized recognized in recognizeds)
-                        {
-                            string recognizedStr = JsonConvert.SerializeObject(recognized, Formatting.Indented);
-                            Debug.WriteLine("Sending to {0}: {1}", humanRecognitionKey, recognizedStr);
-                            byte[] recognizedBytes = Encoding.UTF8.GetBytes(recognizedStr);
-                            channel.BasicPublish("amq.topic", humanRecognitionKey, null, recognizedBytes);
-                        }
-                    }
-                }
-                else
-                {
-                    MessageBox.Show("Unsupported content URI: " + imageObj.ContentUrl);
-                }
-            }            
             else
             {
-                Debug.WriteLine("No incoming ImageObject message after {0} images", receivedImageCount);
+                Debug.WriteLine("No incoming ImageObject message");
             }
-            //Debug.WriteLine("messaging timer out");
         }
 
         private void FormDuble_FormClosing(object sender, FormClosingEventArgs e)

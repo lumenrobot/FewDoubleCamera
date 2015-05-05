@@ -150,14 +150,15 @@ namespace FewDoubleCamera
             byte[] bytes;
             using (var ms = new MemoryStream())
             {
-                capturedFrame.Bitmap.Save(ms, ImageFormat.Jpeg);
+                capturedFrame.Bitmap.Save(ms, ImageFormat.Png);
                 bytes = ms.ToArray();
             }
             var imageObject = new ImageObject();
             imageObject.Type = "ImageObject";
-            imageObject.Name = "webcam.jpg";
+            imageObject.Name = "webcam.png";
             imageObject.DateCreated = "2015-01-01";
-            imageObject.ContentType = "image/jpeg";
+            //imageObject.ContentType = "image/jpeg";
+            imageObject.ContentType = "image/png";
             imageObject.ContentSize = bytes.Length;
             imageObject.ContentUrl = "data:" + imageObject.ContentType + ";base64," + Convert.ToBase64String(bytes);
             var props = channel.CreateBasicProperties();

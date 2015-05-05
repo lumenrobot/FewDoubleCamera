@@ -10,26 +10,14 @@
 using System;
 
 namespace Lumen {
-	public class Vector3
+	public class Rotation3
 	{
-		public double? x;
-		public double? y;
-		public double? z;
+		public double? pitchCcwDeg;
+		public double? yawCcwDeg;
+		public double? rollCcwDeg;
 
-		public Vector3 ()
+		public Rotation3 ()
 		{
-		}
-
-        public Vector3(double x, double y, double z)
-        {
-            this.x = x;
-            this.y = y;
-            this.z = z;
-        }
-
-		public override string ToString ()
-		{
-			return string.Format ("{0},{1},{2}", x, y, z);
 		}
 	}
-}	
+}

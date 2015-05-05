@@ -17,9 +17,14 @@ using RabbitMQ.Client;
 using RabbitMQ.Client.MessagePatterns;
 using RabbitMQ.Client.Events;
 using Newtonsoft.Json;
+using System.Collections;
+using System.Drawing.Imaging;
+using Lumen;
 
 namespace FewDoubleCamera
 {
+    enum MessagingMode { Incoming, Streaming };
+
     public partial class FormDuble : Form
     {
         String n;
@@ -40,11 +45,18 @@ namespace FewDoubleCamera
          //bool sudah = false;
         private IModel channel;
         private Subscription sub;
+        private int imageWidth = 320;
+        private int imageHeight = 240;
+        //private int imageWidth = 640;
+        //private int imageHeight = 480;
+        private MessagingMode messagingMode;
+        private HumanChanges lastHumanChanges = null;
 
         public FormDuble()
         {
             InitializeComponent();
             this.Text = "Pengenalan Wajah";
+            cBKamera.SelectedIndex = 0;
             synthesizer = new SpeechSynthesizer();
             synthesizer.Volume = 100;  // 0...100
             synthesizer.Rate = -2;
@@ -58,7 +70,7 @@ namespace FewDoubleCamera
         private List<HumanFaceRecognized> processFrame(Image<Bgr, byte> capturedFrame)
         {
             List<HumanFaceRecognized> recognizeds = new List<HumanFaceRecognized>();
-            Image<Bgr, Byte> imageFrame = capturedFrame.Resize(320, 240, Emgu.CV.CvEnum.INTER.CV_INTER_CUBIC);
+            Image<Bgr, Byte> imageFrame = capturedFrame.Resize(imageWidth, imageHeight, Emgu.CV.CvEnum.INTER.CV_INTER_CUBIC);
             if (imageFrame != null)
             {
                 ib2.Image = imageFrame;
@@ -130,6 +142,47 @@ namespace FewDoubleCamera
             processFrame(capturedFrame);
         }
 
+        private void captureAndPublish(object sender, EventArgs args)
+        {
+            Image<Bgr, byte> capturedFrame = capture.QueryFrame();
+            capturedFrame = capturedFrame.Resize(imageWidth, imageHeight, Emgu.CV.CvEnum.INTER.CV_INTER_CUBIC);
+            
+            byte[] bytes;
+            using (var ms = new MemoryStream())
+            {
+                capturedFrame.Bitmap.Save(ms, ImageFormat.Jpeg);
+                bytes = ms.ToArray();
+            }
+            var imageObject = new ImageObject();
+            imageObject.Type = "ImageObject";
+            imageObject.Name = "webcam.jpg";
+            imageObject.DateCreated = "2015-01-01";
+            imageObject.ContentType = "image/jpeg";
+            imageObject.ContentSize = bytes.Length;
+            imageObject.ContentUrl = "data:" + imageObject.ContentType + ";base64," + Convert.ToBase64String(bytes);
+            var props = channel.CreateBasicProperties();
+            props.Expiration = "50"; // 50ms max
+            string body = JsonConvert.SerializeObject(imageObject);
+            channel.BasicPublish("amq.topic", "avatar.NAO.data.image", props, UTF8Encoding.UTF8.GetBytes(body));
+            Debug.WriteLine("Sent {0}x{1} ({2} bytes) {3} image", capturedFrame.Width, capturedFrame.Height,
+                imageObject.ContentSize, imageObject.ContentType);
+
+            if (lastHumanChanges != null) {
+                foreach (var e in lastHumanChanges.humanDetecteds)
+                {
+                    capturedFrame.Draw(new LineSegment2D(new Point(e.imageU, e.imageV), new Point(e.imageU, e.imageV - e.imageVH)),
+                        new Bgr(Color.Lime), 8);
+                }
+                foreach (var e in lastHumanChanges.humanMovings)
+                {
+                    capturedFrame.Draw(new LineSegment2D(new Point(e.imageU, e.imageV), new Point(e.imageU, e.imageV - e.imageVH)),
+                        new Bgr(Color.Lime), 8);
+                }
+            }
+            iB.Image = capturedFrame;
+
+        }
+
         private void bStart_Click(object sender, EventArgs e)
         {
             ambilData();
@@ -183,7 +236,7 @@ namespace FewDoubleCamera
             {
                
                 ContTrain = ContTrain + 1;
-                gray = capture.QueryGrayFrame().Resize(320, 240, Emgu.CV.CvEnum.INTER.CV_INTER_CUBIC);
+                gray = capture.QueryGrayFrame().Resize(imageWidth, imageHeight, Emgu.CV.CvEnum.INTER.CV_INTER_CUBIC);
                 Image<Gray, byte> grayframe = gray.Convert<Gray, byte>();
                 var faces = grayframe.DetectHaarCascade(haar, 1.1, 1,
                                         HAAR_DETECTION_TYPE.DO_CANNY_PRUNING,
@@ -264,16 +317,23 @@ namespace FewDoubleCamera
             sudah = false;
         }
 
-        private void activateMessagingBtn_Click(object sender, EventArgs e)
+        private void connectAmqp()
         {
-            ambilData();
-
             ConnectionFactory factory = new ConnectionFactory();
-            factory.Uri = "amqp://lumen:lumen@167.205.66.130/%2F";
+            //factory.Uri = "amqp://lumen:lumen@167.205.66.130/%2F";
+            factory.Uri = "amqp://guest:guest@localhost/%2F";
             IConnection conn = factory.CreateConnection();
             channel = conn.CreateModel();
             conn.AutoClose = true;
             Debug.WriteLine("Connected to AMQP broker '{0}:{1}'", conn.RemoteEndPoint, conn.RemotePort);
+        }
+
+        private void activateMessagingBtn_Click(object sender, EventArgs e)
+        {
+            ambilData();
+
+            messagingMode = MessagingMode.Incoming;
+            connectAmqp();
 
             var arg = new Dictionary<string, object>
             {
@@ -284,8 +344,49 @@ namespace FewDoubleCamera
             string cameraStreamKey = "avatar.NAO.data.image";
             channel.QueueBind(cameraStream.QueueName, "amq.topic", cameraStreamKey);
             Debug.WriteLine("Bound queue '{0}' to topic '{1}'", cameraStream.QueueName, cameraStreamKey);
-            
             sub = new Subscription(channel, cameraStream.QueueName,true);
+
+            messagingTimer.Enabled = true;
+            messagingTimer.Interval = 100;
+        }
+
+        private void startStreamingBtn_Click(object sender, EventArgs e)
+        {
+            int number = 1;
+            number = int.Parse(cBKamera.Text);
+            #region
+            if (capture == null)
+            {
+                try
+                {
+                    capture = new Capture(number);
+                }
+                catch (NullReferenceException exp)
+                {
+                    MessageBox.Show(exp.Message);
+                }
+            }
+            #endregion
+            if (capture != null)
+            {
+                captureTimer.Enabled = true;
+                progres = true;
+            }
+
+            messagingMode = MessagingMode.Streaming;
+            connectAmqp();
+
+            var arg = new Dictionary<string, object>
+            {
+                {"x-message-ttl", 50}
+            };
+            QueueDeclareOk queue = channel.QueueDeclare("", false, true, true, arg);
+            Debug.WriteLine("Declared anonymous exclusive queue '{0}'", (object)queue.QueueName);
+            string humanDetectionKey = "lumen.arkan.human.detection";
+            channel.QueueBind(queue.QueueName, "amq.topic", humanDetectionKey);
+            Debug.WriteLine("Bound queue '{0}' to topic '{1}'", queue.QueueName, humanDetectionKey);
+            sub = new Subscription(channel, queue.QueueName, true);
+
             messagingTimer.Enabled = true;
             messagingTimer.Interval = 100;
         }
@@ -297,6 +398,11 @@ namespace FewDoubleCamera
             sub = null;
             channel.Close();
             channel = null;
+
+            if (progres)
+            {
+                captureTimer.Enabled = false;
+            }
         }
 
         private void messagingTimer_Tick(object sender, EventArgs e)
@@ -320,53 +426,61 @@ namespace FewDoubleCamera
 
             if (lastMsg != null)
             {
-                JsonSerializerSettings jsonSettings = new JsonSerializerSettings { TypeNameHandling = TypeNameHandling.Objects };
-                ImageObject imageObj = JsonConvert.DeserializeObject<ImageObject>(lastMsg, jsonSettings);
-                Debug.WriteLine("Got object: {0}", imageObj);
-                string base64 = null;
-                if (imageObj.ContentUrl.StartsWith("data:image/jpeg;base64,"))
-                {
-                    base64 = imageObj.ContentUrl.Replace("data:image/jpeg;base64,", "");
-                }
-                if (imageObj.ContentUrl.StartsWith("data:image/png;base64,"))
-                {
-                    base64 = imageObj.ContentUrl.Replace("data:image/png;base64,", "");
-                }
-                if (imageObj.ContentUrl.StartsWith("data:image/bmp;base64,"))
-                {
-                    base64 = imageObj.ContentUrl.Replace("data:image/bmp;base64,", "");
-                }
-                if (imageObj.ContentUrl.StartsWith("data:image/gif;base64,"))
-                {
-                    base64 = imageObj.ContentUrl.Replace("data:image/gif;base64,", "");
-                }
-                if (base64 != null)
-                {
-                    byte[] bytes = Convert.FromBase64String(base64);
-                    using (MemoryStream ms = new MemoryStream(bytes))
+                var jsonSettings = new JsonSerializerSettings { TypeNameHandling = TypeNameHandling.Objects };
+                var dict = JsonConvert.DeserializeObject<IDictionary>(lastMsg, jsonSettings);
+                if ((string) dict["@type"] == "ImageObject") {
+                    ImageObject imageObj = JsonConvert.DeserializeObject<ImageObject>(lastMsg, jsonSettings);
+                    Debug.WriteLine("Got object: {0}", imageObj);
+                    string base64 = null;
+                    if (imageObj.ContentUrl.StartsWith("data:image/jpeg;base64,"))
                     {
-                        Bitmap bmp = (Bitmap)Image.FromStream(ms);
-                        Image<Bgr, byte> receivedImage = new Image<Bgr, byte>(bmp);
-                        List<HumanFaceRecognized> recognizeds = processFrame(receivedImage);
-                        Debug.WriteLine("Recognized {0} faces: {1}", recognizeds.Count, recognizeds);
-                        const string humanRecognitionKey = "lumen.arkan.face.recognition";
-                        foreach (HumanFaceRecognized recognized in recognizeds)
+                        base64 = imageObj.ContentUrl.Replace("data:image/jpeg;base64,", "");
+                    }
+                    if (imageObj.ContentUrl.StartsWith("data:image/png;base64,"))
+                    {
+                        base64 = imageObj.ContentUrl.Replace("data:image/png;base64,", "");
+                    }
+                    if (imageObj.ContentUrl.StartsWith("data:image/bmp;base64,"))
+                    {
+                        base64 = imageObj.ContentUrl.Replace("data:image/bmp;base64,", "");
+                    }
+                    if (imageObj.ContentUrl.StartsWith("data:image/gif;base64,"))
+                    {
+                        base64 = imageObj.ContentUrl.Replace("data:image/gif;base64,", "");
+                    }
+                    if (base64 != null)
+                    {
+                        byte[] bytes = Convert.FromBase64String(base64);
+                        using (MemoryStream ms = new MemoryStream(bytes))
                         {
-                            string recognizedStr = JsonConvert.SerializeObject(recognized, Formatting.Indented);
-                            Debug.WriteLine("Sending to {0}: {1}", humanRecognitionKey, recognizedStr);
-                            byte[] recognizedBytes = Encoding.UTF8.GetBytes(recognizedStr);
-                            channel.BasicPublish("amq.topic", humanRecognitionKey, null, recognizedBytes);
+                            Bitmap bmp = (Bitmap)Image.FromStream(ms);
+                            Image<Bgr, byte> receivedImage = new Image<Bgr, byte>(bmp);
+                            List<HumanFaceRecognized> recognizeds = processFrame(receivedImage);
+                            Debug.WriteLine("Recognized {0} faces: {1}", recognizeds.Count, recognizeds);
+                            const string humanRecognitionKey = "lumen.arkan.face.recognition";
+                            foreach (HumanFaceRecognized recognized in recognizeds)
+                            {
+                                string recognizedStr = JsonConvert.SerializeObject(recognized, Formatting.Indented);
+                                Debug.WriteLine("Sending to {0}: {1}", humanRecognitionKey, recognizedStr);
+                                byte[] recognizedBytes = Encoding.UTF8.GetBytes(recognizedStr);
+                                channel.BasicPublish("amq.topic", humanRecognitionKey, null, recognizedBytes);
+                            }
                         }
                     }
-                }
-                else
+                    else
+                    {
+                        MessageBox.Show("Unsupported content URI: " + imageObj.ContentUrl);
+                    }
+                } else if ((string) dict["@type"] == "HumanChanges")
                 {
-                    MessageBox.Show("Unsupported content URI: " + imageObj.ContentUrl);
+                    var humanChanges = JsonConvert.DeserializeObject<HumanChanges>(lastMsg, jsonSettings);
+                    Debug.WriteLine("HumanChanges {0}", humanChanges);
+                    lastHumanChanges = humanChanges;
                 }
             }
             else
             {
-                Debug.WriteLine("No incoming ImageObject message");
+                //Debug.WriteLine("No incoming message");
             }
         }
 
@@ -382,5 +496,11 @@ namespace FewDoubleCamera
                 stopMessagingBtn.PerformClick();
             }
         }
+
+        private void captureTimer_Tick(object sender, EventArgs e)
+        {
+            captureAndPublish(sender, e);
+        }
+
     }
 }

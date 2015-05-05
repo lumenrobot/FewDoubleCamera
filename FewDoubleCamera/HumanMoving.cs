@@ -8,28 +8,13 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 using System;
+public class HumanMoving
+{
+	public String humanId;
+	public Lumen.Vector3 position;
+	public Lumen.Rotation3 rotation;
+    public int imageU;
+    public int imageV;
+    public int imageVH;
+}
 
-namespace Lumen {
-	public class Vector3
-	{
-		public double? x;
-		public double? y;
-		public double? z;
-
-		public Vector3 ()
-		{
-		}
-
-        public Vector3(double x, double y, double z)
-        {
-            this.x = x;
-            this.y = y;
-            this.z = z;
-        }
-
-		public override string ToString ()
-		{
-			return string.Format ("{0},{1},{2}", x, y, z);
-		}
-	}
-}	

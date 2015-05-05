@@ -11,6 +11,8 @@ namespace FewDoubleCamera
     /// </summary>
     class ImageObject
     {
+        [JsonProperty("@type")]
+        public String Type { get; set; }
         [JsonProperty("name")]
         public String Name { get; set; }
         [JsonProperty("contentType")]

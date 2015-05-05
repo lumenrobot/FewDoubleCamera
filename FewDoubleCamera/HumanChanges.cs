@@ -8,28 +8,10 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 using System;
+using System.Collections.Generic;
+public class HumanChanges
+{
+	public List<HumanDetected> humanDetecteds {get;set;}
+	public List<HumanMoving> humanMovings {get;set;}
+}
 
-namespace Lumen {
-	public class Vector3
-	{
-		public double? x;
-		public double? y;
-		public double? z;
-
-		public Vector3 ()
-		{
-		}
-
-        public Vector3(double x, double y, double z)
-        {
-            this.x = x;
-            this.y = y;
-            this.z = z;
-        }
-
-		public override string ToString ()
-		{
-			return string.Format ("{0},{1},{2}", x, y, z);
-		}
-	}
-}	

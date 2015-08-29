@@ -218,7 +218,7 @@
             // 
             // captureTimer
             // 
-            this.captureTimer.Interval = 350;
+            this.captureTimer.Interval = 400;
             this.captureTimer.Tick += new System.EventHandler(this.captureTimer_Tick);
             // 
             // FormDuble
